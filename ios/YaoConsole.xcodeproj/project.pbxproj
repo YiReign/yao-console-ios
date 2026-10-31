@@ -4,6 +4,8 @@
 000000000000000000000011 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 000000000000000000000012 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebEngine.swift; sourceTree = "<group>"; };
 000000000000000000000020 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
+000000000000000000000022 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+000000000000000000000023 = { isa = PBXBuildFile; fileRef = 000000000000000000000022; };
 000000000000000000000021 = { isa = PBXBuildFile; fileRef = 000000000000000000000020; };
 000000000000000000000013 = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 000000000000000000000014 = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -13,9 +15,9 @@
 000000000000000000000018 = { isa = PBXBuildFile; fileRef = 000000000000000000000014; };
 000000000000000000000006 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YaoConsole.app; sourceTree = BUILT_PRODUCTS_DIR; };
 000000000000000000000002 = { isa = PBXGroup; children = (000000000000000000000003,000000000000000000000004,); sourceTree = "<group>"; };
-000000000000000000000003 = { isa = PBXGroup; children = (000000000000000000000010,000000000000000000000011,000000000000000000000012,000000000000000000000020,000000000000000000000013,000000000000000000000014,); path = YaoConsole; sourceTree = "<group>"; };
+000000000000000000000003 = { isa = PBXGroup; children = (000000000000000000000010,000000000000000000000011,000000000000000000000012,000000000000000000000020,000000000000000000000022,000000000000000000000013,000000000000000000000014,); path = YaoConsole; sourceTree = "<group>"; };
 000000000000000000000004 = { isa = PBXGroup; children = (000000000000000000000006,); name = Products; sourceTree = "<group>"; };
-000000000000000000000007 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000015,000000000000000000000016,000000000000000000000017,000000000000000000000021,); runOnlyForDeploymentPostprocessing = 0; };
+000000000000000000000007 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000015,000000000000000000000016,000000000000000000000017,000000000000000000000021,000000000000000000000023,); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000008 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000009 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000018,); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000005 = { isa = PBXNativeTarget; buildConfigurationList = 00000000000000000000000B; buildPhases = (000000000000000000000007,000000000000000000000008,000000000000000000000009,); buildRules = (); dependencies = (); name = YaoConsole; productName = YaoConsole; productReference = 000000000000000000000006; productType = "com.apple.product-type.application"; };
