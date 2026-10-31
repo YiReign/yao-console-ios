@@ -42,7 +42,7 @@ struct LoadingBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Color.clear
-                LinearGradient(colors: [Theme.ink, Theme.accent2],
+                LinearGradient(colors: [Color(red: 0.35, green: 0.33, blue: 0.62), Color(red: 0.72, green: 0.62, blue: 1.0)],
                                startPoint: .leading, endPoint: .trailing)
                     .frame(width: max(0, min(1, progress)) * geo.size.width)
                     .animation(.easeOut(duration: 0.28), value: progress)
@@ -89,8 +89,8 @@ final class WebEngine: ObservableObject {
         view.allowsLinkPreview = true
         view.scrollView.contentInsetAdjustmentBehavior = .never
         view.isOpaque = false
-        view.backgroundColor = UIColor(Theme.bg)
-        view.scrollView.backgroundColor = UIColor(Theme.bg)
+        view.backgroundColor = UIColor(red: 0.972, green: 0.965, blue: 1.0, alpha: 1)
+        view.scrollView.backgroundColor = UIColor(red: 0.972, green: 0.965, blue: 1.0, alpha: 1)
         // 让页面认为自己是 Safari，避免部分站点降级或拦截内嵌浏览器
         view.customUserAgent = nil
         self.webView = view
