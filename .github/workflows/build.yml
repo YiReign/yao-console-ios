@@ -37,9 +37,9 @@ jobs:
           test ! -e "$APP/_CodeSignature"
           mkdir -p dist/package/Payload
           cp -R "$APP" dist/package/Payload/
-          (cd dist/package && zip -qry ../yao-console-v1.1.ipa Payload)
-          ls -lh dist/yao-console-v1.1.ipa
-          shasum -a 256 dist/yao-console-v1.1.ipa | tee dist/yao-console-v1.1.ipa.sha256
+          (cd dist/package && zip -qry ../yao-console-v1.2.ipa Payload)
+          ls -lh dist/yao-console-v1.2.ipa
+          shasum -a 256 dist/yao-console-v1.2.ipa | tee dist/yao-console-v1.2.ipa.sha256
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2
@@ -50,7 +50,7 @@ jobs:
             未签名 IPA，用于自行重签安装。
             包含：服务器面板、时钟控制台、YAO AI、个人站
           files: |
-            dist/yao-console-v1.1.ipa
-            dist/yao-console-v1.1.ipa.sha256
+            dist/yao-console-v1.2.ipa
+            dist/yao-console-v1.2.ipa.sha256
           draft: false
           prerelease: false

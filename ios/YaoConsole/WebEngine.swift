@@ -42,7 +42,7 @@ struct LoadingBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Color.clear
-                LinearGradient(colors: [Theme.accent, Theme.accent2],
+                LinearGradient(colors: [Theme.ink, Theme.accent2],
                                startPoint: .leading, endPoint: .trailing)
                     .frame(width: max(0, min(1, progress)) * geo.size.width)
                     .animation(.easeOut(duration: 0.28), value: progress)

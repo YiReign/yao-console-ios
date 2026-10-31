@@ -8,7 +8,6 @@ struct Backend: Identifiable, Hashable {
     let name: String
     let host: String
     let icon: String
-    let tint: Color
     let urlString: String
     var url: URL { URL(string: urlString)! }
 }
@@ -16,66 +15,73 @@ struct Backend: Identifiable, Hashable {
 enum Backends {
     static let all: [Backend] = [
         Backend(id: "panel", name: "服务器面板", host: "status.yaoyc.fun",
-                icon: "server.rack", tint: Color(red: 0.42, green: 0.36, blue: 0.91),
-                urlString: "https://status.yaoyc.fun"),
-        Backend(id: "clock", name: "时钟控制台", host: "pet.yaoyc.fun",
-                icon: "clock.badge.checkmark", tint: Color(red: 0.31, green: 0.62, blue: 0.86),
-                urlString: "https://pet.yaoyc.fun/control"),
+                icon: "server.rack", urlString: "https://status.yaoyc.fun"),
+        Backend(id: "clock", name: "时钟控制台", host: "pet.yaoyc.fun/control",
+                icon: "clock", urlString: "https://pet.yaoyc.fun/control"),
         Backend(id: "pet", name: "Hermes 状态", host: "pet.yaoyc.fun",
-                icon: "sparkles", tint: Color(red: 0.85, green: 0.45, blue: 0.55),
-                urlString: "https://pet.yaoyc.fun"),
+                icon: "sparkles", urlString: "https://pet.yaoyc.fun"),
         Backend(id: "chat", name: "YAO AI", host: "chat.yaoyc.fun",
-                icon: "bubble.left.and.bubble.right", tint: Color(red: 0.36, green: 0.72, blue: 0.55),
-                urlString: "https://chat.yaoyc.fun"),
+                icon: "bubble.left.and.bubble.right", urlString: "https://chat.yaoyc.fun"),
         Backend(id: "site", name: "个人站", host: "yaoyc.fun",
-                icon: "square.grid.2x2", tint: Color(red: 0.55, green: 0.58, blue: 0.66),
-                urlString: "https://yaoyc.fun")
+                icon: "square.grid.2x2", urlString: "https://yaoyc.fun")
     ]
 }
 
-// MARK: - 主题
+// MARK: - 主题（白底、细线、克制）
 
 enum Theme {
-    static let bg     = Color(red: 0.972, green: 0.968, blue: 0.996)
+    static let bg     = Color(red: 0.980, green: 0.980, blue: 0.984)   // #FAFAFB
     static let card   = Color.white
-    static let ink    = Color(red: 0.110, green: 0.106, blue: 0.204)
-    static let ink2   = Color(red: 0.439, green: 0.443, blue: 0.529)
-    static let line   = Color(red: 0.906, green: 0.902, blue: 0.945)
-    static let accent = Color(red: 0.451, green: 0.400, blue: 0.910)
+    static let ink    = Color(red: 0.098, green: 0.098, blue: 0.118)   // #19191E
+    static let ink2   = Color(red: 0.478, green: 0.478, blue: 0.510)   // #7A7A82
+    static let ink3   = Color(red: 0.702, green: 0.702, blue: 0.729)   // #B3B3BA
+    static let line   = Color(red: 0.902, green: 0.902, blue: 0.918)   // #E6E6EA
+    static let accent = Color(red: 0.098, green: 0.098, blue: 0.118)   // 主色=近黑，图标用
     static let accent2 = Color(red: 0.616, green: 0.549, blue: 0.965)
-    static let ok     = Color(red: 0.204, green: 0.780, blue: 0.478)
-    static let warn   = Color(red: 0.965, green: 0.678, blue: 0.204)
-    static let down   = Color(red: 0.898, green: 0.318, blue: 0.318)
+    static let ok     = Color(red: 0.180, green: 0.702, blue: 0.443)
+    static let warn   = Color(red: 0.949, green: 0.639, blue: 0.145)
+    static let down   = Color(red: 0.878, green: 0.286, blue: 0.286)
 }
 
 // MARK: - 状态模型
 
 struct CardState {
-    var connected: Bool = false        // 是否拿到了数据
-    var needsLogin: Bool = false       // 需要登录
+    var connected: Bool = false
+    var needsLogin: Bool = false
     var level: Level = .unknown
     var headline: String = "—"
-    var details: [String] = []
-    var progress: Double? = nil        // 0..1，用于 CPU/内存条
+    var rows: [(String, String)] = []     // 左侧标签 / 右侧值
+    var progress: Double? = nil
 
     enum Level { case ok, warn, down, unknown }
 
     var dotColor: Color {
         switch level {
-        case .ok:      return Theme.ok
-        case .warn:    return Theme.warn
-        case .down:    return Theme.down
-        case .unknown: return Theme.line
+        case .ok: return Theme.ok
+        case .warn: return Theme.warn
+        case .down: return Theme.down
+        case .unknown: return Theme.ink3
+        }
+    }
+
+    var levelText: String {
+        switch level {
+        case .ok: return "正常"
+        case .warn: return "异常"
+        case .down: return "离线"
+        case .unknown: return "未连接"
         }
     }
 }
 
-// MARK: - 数据拉取
+// MARK: - 数据
 
 @MainActor
 final class StatusStore: ObservableObject {
     @Published var cards: [String: CardState] = [:]
     @Published var lastRefresh = Date()
+    @Published var events: [String] = []
+    var pendingEvents: [String] = []
 
     private let session: URLSession
 
@@ -93,142 +99,142 @@ final class StatusStore: ObservableObject {
         async let chat = fetchChat()
         async let panel = fetchPanel()
         async let site = fetchSite()
-        let results = await (pet, clock, chat, panel, site)
-        for (k, v) in [("pet", results.0), ("clock", results.1), ("chat", results.2),
-                       ("panel", results.3), ("site", results.4)] {
+        let r = await (pet, clock, chat, panel, site)
+        for (k, v) in [("pet", r.0), ("clock", r.1), ("chat", r.2), ("panel", r.3), ("site", r.4)] {
             if let v { cards[k] = v }
         }
+        if !pendingEvents.isEmpty { events = pendingEvents; pendingEvents = [] }
         lastRefresh = Date()
     }
 
-    private func get(_ url: String, cookie: Bool = true) async -> (Data?, Int) {
-        guard let u = URL(string: url) else { return (nil, 0) }
+    private func get(_ s: String) async -> (Data?, Int) {
+        guard let u = URL(string: s) else { return (nil, 0) }
         var req = URLRequest(url: u)
         req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
         do {
-            let (d, r) = try await session.data(for: req)
-            return (d, (r as? HTTPURLResponse)?.statusCode ?? 0)
-        } catch {
-            return (nil, 0)
-        }
+            let (d, resp) = try await session.data(for: req)
+            return (d, (resp as? HTTPURLResponse)?.statusCode ?? 0)
+        } catch { return (nil, 0) }
     }
 
-    // Hermes Pet —— 无需登录
     private func fetchPet() async -> CardState? {
         var st = CardState()
         let (d, code) = await get("https://pet.yaoyc.fun/api/stats")
         guard code == 200, let d,
-              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
-            st.level = .down; st.headline = "离线"; return st
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
+            st.level = .down; st.headline = "无法连接"; return st
         }
         st.connected = true
         st.level = .ok
-        let total = obj["total"] as? [String: Any] ?? [:]
-        let calls = total["calls"] as? Int ?? 0
-        let tin = total["in"] as? Int ?? 0
-        st.headline = "今日 \(calls) 次调用"
-        st.details = ["输入 \(fmt(tin)) tokens"]
-        if let models = obj["models"] as? [[String: Any]], let first = models.first {
-            let name = first["model"] as? String ?? ""
-            let c = first["calls"] as? Int ?? 0
-            st.details.append("\(name) · \(c) 次")
+        let t = o["total"] as? [String: Any] ?? [:]
+        let calls = t["calls"] as? Int ?? 0
+        st.headline = "\(calls) 次调用"
+        st.rows.append(("输入", fmt(t["in"] as? Int ?? 0)))
+        st.rows.append(("输出", fmt(t["out"] as? Int ?? 0)))
+        if let ms = o["models"] as? [[String: Any]], let f = ms.first {
+            st.rows.append(("主力", f["model"] as? String ?? "—"))
         }
-        // AI 当前状态
         let (sd, sc) = await get("https://pet.yaoyc.fun/api/status")
         if sc == 200, let sd,
            let so = try? JSONSerialization.jsonObject(with: sd) as? [String: Any] {
             let state = so["state"] as? String ?? ""
             let text = so["text"] as? String ?? ""
-            st.details.insert(state == "idle" ? "空闲" : "● \(text)", at: 0)
+            st.rows.insert(("状态", state == "idle" ? "空闲" : text), at: 0)
+            if let evs = so["events"] as? [[String: Any]] {
+                var out: [String] = []
+                for e in evs.prefix(6) {
+                    let t = e["time"] as? String ?? ""
+                    let x = e["text"] as? String ?? ""
+                    if !x.isEmpty { out.append("\(t)  \(x)") }
+                }
+                pendingEvents = out
+            }
         }
         return st
     }
 
-    // 时钟控制台 —— 需要配对码登录（cookie 由 WebView 共享）
     private func fetchClock() async -> CardState? {
         var st = CardState()
         let (d, code) = await get("https://pet.yaoyc.fun/api/clock/hub/status")
         if code == 401 {
-            st.needsLogin = true; st.level = .unknown; st.headline = "未登录"
-            st.details = ["点击进入并输入配对码"]; return st
+            st.needsLogin = true; st.headline = "未登录"
+            st.rows = [("提示", "进入后输入配对码")]
+            return st
         }
         guard code == 200, let d,
-              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
             st.level = .down; st.headline = "无法连接"; return st
         }
         st.connected = true
-        let online = obj["online"] as? Bool ?? false
+        let online = o["online"] as? Bool ?? false
         st.level = online ? .ok : .down
         st.headline = online ? "设备在线" : "设备离线"
-        if let inner = obj["status"] as? [String: Any] {
-            let fw = inner["firmware"] as? String ?? "—"
-            st.details.append("固件 \(fw)")
-            if let wifi = inner["connectedSsid"] as? String {
-                st.details.append("WiFi \(wifi)")
-            }
-            if let fps = inner["fps"] as? Int { st.details.append("\(fps) fps") }
+        if let inner = o["status"] as? [String: Any] {
+            st.rows.append(("固件", inner["firmware"] as? String ?? "—"))
+            st.rows.append(("WiFi", inner["connectedSsid"] as? String ?? "—"))
+            if let fps = inner["fps"] as? Int { st.rows.append(("帧率", "\(fps) fps")) }
         }
-        if let ts = obj["updatedAt"] as? Double, !online {
-            let date = Date(timeIntervalSince1970: ts / 1000)
-            let mins = Int(Date().timeIntervalSince(date) / 60)
-            st.details.append(mins > 120 ? "已离线 \(mins/60) 小时" : "已离线 \(mins) 分钟")
+        if let ts = o["updatedAt"] as? Double, !online {
+            let mins = Int(Date().timeIntervalSince1970 - ts / 1000) / 60
+            st.rows.append(("离线", mins > 120 ? "\(mins / 60) 小时" : "\(mins) 分钟"))
         }
         return st
     }
 
-    // WebChat —— 无需登录
     private func fetchChat() async -> CardState? {
         var st = CardState()
         let (d, code) = await get("https://chat.yaoyc.fun/api/models")
         guard code == 200, let d,
-              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
-            st.level = .down; st.headline = "离线"; return st
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
+            st.level = .down; st.headline = "无法连接"; return st
         }
-        st.connected = true
-        st.level = .ok
-        let models = obj["models"] as? [[String: Any]] ?? []
-        st.headline = "\(models.count) 个模型可用"
-        let def = obj["default"] as? String ?? ""
-        if let m = models.first(where: { ($0["key"] as? String) == def }) {
-            st.details = ["默认 \(m["name"] as? String ?? def)"]
+        st.connected = true; st.level = .ok
+        let ms = o["models"] as? [[String: Any]] ?? []
+        st.headline = "\(ms.count) 个模型"
+        let def = o["default"] as? String ?? ""
+        if let m = ms.first(where: { ($0["key"] as? String) == def }) {
+            st.rows.append(("默认", m["name"] as? String ?? def))
+        }
+        if ms.count > 1, let second = ms[1]["name"] as? String {
+            st.rows.append(("其他", second))
         }
         return st
     }
 
-    // 服务器面板 —— 需要账号密码登录
     private func fetchPanel() async -> CardState? {
         var st = CardState()
         let (d, code) = await get("https://status.yaoyc.fun/api/status")
-        if code == 401 || code == 302 {
-            st.needsLogin = true; st.level = .unknown; st.headline = "未登录"
-            st.details = ["点击进入面板登录"]; return st
+        if code == 401 || code == 302 || code == 0 {
+            st.needsLogin = true; st.headline = "未登录"
+            st.rows = [("提示", "进入面板登录后显示")]
+            return st
         }
         guard code == 200, let d,
-              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let servers = obj["servers"] as? [[String: Any]] else {
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let sv = o["servers"] as? [[String: Any]] else {
             st.level = .down; st.headline = "无法连接"; return st
         }
         st.connected = true
-        let okOnes = servers.filter { ($0["ok"] as? Bool) == true }
-        st.level = okOnes.isEmpty ? .down : (okOnes.count < servers.count ? .warn : .ok)
-        st.headline = "\(okOnes.count)/\(servers.count) 台在线"
-        if let first = okOnes.first {
-            let cpu = first["cpu"] as? Double ?? 0
-            let mem = first["mem_pct"] as? Double ?? 0
+        let okOnes = sv.filter { ($0["ok"] as? Bool) == true }
+        st.level = okOnes.isEmpty ? .down : (okOnes.count < sv.count ? .warn : .ok)
+        st.headline = "\(okOnes.count)/\(sv.count) 台在线"
+        if let f = okOnes.first {
+            let cpu = f["cpu"] as? Double ?? 0
             st.progress = cpu / 100
-            st.details = ["CPU \(Int(cpu))%", "内存 \(Int(mem))%"]
+            st.rows.append(("CPU", "\(Int(cpu))%"))
+            st.rows.append(("内存", "\(Int(f["mem_pct"] as? Double ?? 0))%"))
+            if let n = f["name"] as? String { st.rows.append(("主机", n)) }
         }
         return st
     }
 
-    // 个人站 —— 只看可达性
     private func fetchSite() async -> CardState? {
         var st = CardState()
         let (_, code) = await get("https://yaoyc.fun")
         st.connected = code == 200
         st.level = code == 200 ? .ok : .down
-        st.headline = code == 200 ? "正常访问" : "无法访问"
-        if code == 200 { st.details = ["YAO Tools 在线工具箱"] }
+        st.headline = code == 200 ? "正常" : "无法访问"
+        if code == 200 { st.rows = [("站点", "YAO Tools 工具箱")] }
         return st
     }
 
@@ -239,7 +245,7 @@ final class StatusStore: ObservableObject {
     }
 }
 
-// MARK: - 首页（后台总览）
+// MARK: - 首页
 
 struct ContentView: View {
     @StateObject private var store = StatusStore()
@@ -251,27 +257,32 @@ struct ContentView: View {
             ZStack {
                 Theme.bg.ignoresSafeArea()
                 ScrollView {
-                    VStack(spacing: 12) {
-                        header
-                        ForEach(Backends.all) { b in
-                            Button { opened = b } label: {
-                                BackendCard(backend: b, state: store.cards[b.id])
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        footer
+                    VStack(spacing: 0) {
+                        summaryBar
+                        sectionTitle("后台")
+                        cardSection
+                        sectionTitle("最近事件")
+                        eventBlock
+                        Spacer(minLength: 30)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
                 }
                 .refreshable { await store.refreshAll() }
             }
-            .navigationBarHidden(true)
-            .fullScreenCover(item: $opened) { b in
-                BackendView(backend: b) {
-                    Task { await store.refreshAll() }
+            .navigationTitle("后台总览")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await store.refreshAll() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                    }
                 }
+            }
+            .navigationDestination(item: $opened) { b in
+                BackendView(backend: b) { Task { await store.refreshAll() } }
             }
         }
         .task {
@@ -281,108 +292,181 @@ struct ContentView: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("后台总览")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                Text(store.lastRefresh.formatted(date: .omitted, time: .shortened) + " 更新")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.ink2)
-            }
-            Spacer()
-            Button {
-                Task { await store.refreshAll() }
-            } label: {
-                Image(systemName: "arrow.trianglehead.clockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 38, height: 38)
-                    .background(Theme.card, in: Circle())
-            }
-            .buttonStyle(.plain)
+    // 顶部概览：三格数字
+    private var summaryBar: some View {
+        let total = Backends.all.count
+        let online = Backends.all.filter { store.cards[$0.id]?.level == .ok }.count
+        let issues = Backends.all.filter {
+            let lv = store.cards[$0.id]?.level
+            return lv == .down || lv == .warn
+        }.count
+        return HStack(spacing: 0) {
+            summaryCell("\(total)", "个后台")
+            divider
+            summaryCell("\(online)", "正常", color: Theme.ok)
+            divider
+            summaryCell("\(issues)", "异常", color: issues > 0 ? Theme.down : Theme.ink)
         }
-        .padding(.top, 6)
-        .padding(.bottom, 4)
+        .padding(.vertical, 14)
+        .background(Theme.card)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 0.5) }
+        .padding(.bottom, 20)
     }
 
-    private var footer: some View {
-        HStack(spacing: 6) {
-            Circle().fill(Theme.ok).frame(width: 6, height: 6)
-            Text("下拉刷新 · 点卡片进入后台")
+    private var divider: some View {
+        Rectangle().fill(Theme.line).frame(width: 0.5, height: 26)
+    }
+
+    private func summaryCell(_ num: String, _ label: String, color: Color = Theme.ink) -> some View {
+        VStack(spacing: 3) {
+            Text(num)
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.ink2)
         }
-        .padding(.top, 8)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func sectionTitle(_ s: String) -> some View {
+        Text(s)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Theme.ink2)
+            .textCase(.uppercase)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var cardSection: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(Backends.all.enumerated()), id: \.element.id) { idx, b in
+                Button { opened = b } label: {
+                    BackendRow(backend: b, state: store.cards[b.id])
+                }
+                .buttonStyle(.plain)
+                if idx < Backends.all.count - 1 {
+                    Rectangle().fill(Theme.line).frame(height: 0.5).padding(.leading, 56)
+                }
+            }
+        }
+        .background(Theme.card)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 0.5) }
+        .padding(.bottom, 20)
+    }
+
+    private var eventBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if store.events.isEmpty {
+                Text("暂无事件")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.ink3)
+                    .padding(.horizontal, 20).padding(.vertical, 16)
+            } else {
+                ForEach(Array(store.events.prefix(6).enumerated()), id: \.offset) { i, e in
+                    Text(e)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.ink2)
+                        .padding(.horizontal, 20).padding(.vertical, 9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if i < min(store.events.count, 6) - 1 {
+                        Rectangle().fill(Theme.line).frame(height: 0.5).padding(.leading, 20)
+                    }
+                }
+            }
+        }
+        .background(Theme.card)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 0.5) }
     }
 }
 
-// MARK: - 后台卡片
+// MARK: - 一行后台
 
-struct BackendCard: View {
+struct BackendRow: View {
     let backend: Backend
     let state: CardState?
 
     var body: some View {
-        HStack(spacing: 13) {
-            // 图标
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: backend.icon)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(backend.tint)
-                .frame(width: 42, height: 42)
-                .background(backend.tint.opacity(0.12),
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 28, height: 28)
+                .background(Theme.bg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
                     Text(backend.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 14.5, weight: .medium))
                         .foregroundStyle(Theme.ink)
                     if let s = state {
-                        Circle().fill(s.dotColor).frame(width: 7, height: 7)
+                        HStack(spacing: 4) {
+                            Circle().fill(s.dotColor).frame(width: 5, height: 5)
+                            Text(s.levelText)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(s.level == .down ? Theme.down : Theme.ink3)
+                        }
                     }
+                    Spacer(minLength: 0)
+                    Text(backend.host)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.ink3)
+                        .lineLimit(1)
                 }
+
                 if let s = state {
-                    Text(s.headline)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(s.level == .down ? Theme.down : Theme.ink2)
-                    if !s.details.isEmpty {
-                        Text(s.details.joined(separator: "  ·  "))
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(Theme.ink2.opacity(0.75))
-                            .lineLimit(1)
+                    if s.rows.isEmpty {
+                        Text(s.headline)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(Theme.ink2)
+                    } else {
+                        // 指标行：两列对齐
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(Array(s.rows.prefix(3).enumerated()), id: \.offset) { _, pair in
+                                HStack(spacing: 6) {
+                                    Text(pair.0)
+                                        .font(.system(size: 11.5))
+                                        .foregroundStyle(Theme.ink3)
+                                        .frame(width: 34, alignment: .leading)
+                                    Text(pair.1)
+                                        .font(.system(size: 11.5, weight: .medium))
+                                        .foregroundStyle(Theme.ink2)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                        }
                     }
                     if let p = s.progress {
                         ProgressView(value: p)
-                            .tint(p > 0.8 ? Theme.warn : Theme.accent)
-                            .scaleEffect(x: 1, y: 0.7, anchor: .center)
-                            .padding(.top, 1)
+                            .tint(p > 0.8 ? Theme.warn : Theme.ink2)
+                            .scaleEffect(x: 1, y: 0.55, anchor: .center)
+                            .padding(.top, 2)
                     }
                 } else {
-                    Text("读取中…")
+                    Text("读取中")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.ink2.opacity(0.6))
+                        .foregroundStyle(Theme.ink3)
                 }
             }
 
-            Spacer(minLength: 4)
-
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.ink2.opacity(0.4))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.ink3)
+                .padding(.top, 8)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Theme.line, lineWidth: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .contentShape(Rectangle())
     }
 }
 
-// MARK: - 后台详情（WebView + 进度条）
+// MARK: - 详情：WebView + 进度
 
 struct BackendView: View {
     let backend: Backend
@@ -393,7 +477,6 @@ struct BackendView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
             LoadingBar(progress: engine.progress, visible: engine.loading || engine.progress > 0)
             if engine.failed {
                 ErrorPane(message: engine.failedMessage) { engine.reload() }
@@ -402,6 +485,27 @@ struct BackendView: View {
             }
         }
         .background(Theme.bg.ignoresSafeArea())
+        .navigationTitle(backend.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(false)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 16) {
+                    Button { engine.goBack() } label: {
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(engine.webView.canGoBack ? Theme.ink : Theme.ink3)
+                    }
+                    .disabled(!engine.webView.canGoBack)
+
+                    Button { engine.reload() } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                    }
+                }
+            }
+        }
         .onAppear {
             let c = NavigationCoordinator()
             c.engine = engine
@@ -411,62 +515,18 @@ struct BackendView: View {
             engine.load(backend.url)
         }
     }
-
-    private var topBar: some View {
-        HStack(spacing: 10) {
-            Button(action: onClose) {
-                HStack(spacing: 3) {
-                    Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
-                    Text("总览").font(.system(size: 14))
-                }
-                .foregroundStyle(Theme.accent)
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            VStack(spacing: 1) {
-                Text(backend.name)
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                Text(backend.host)
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(Theme.ink2.opacity(0.7))
-            }
-
-            Spacer()
-
-            HStack(spacing: 14) {
-                Button { engine.goBack() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(engine.webView.canGoBack ? Theme.ink : Theme.ink2.opacity(0.25))
-                }.disabled(!engine.webView.canGoBack).buttonStyle(.plain)
-
-                Button { engine.reload() } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                }.buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Theme.card)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 0.5) }
-    }
 }
 
 struct ErrorPane: View {
     let message: String
     let retry: () -> Void
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(Theme.accent)
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(Theme.ink2)
             Text("打不开这个后台")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Theme.ink)
             if !message.isEmpty {
                 Text(message).font(.system(size: 12))
@@ -474,11 +534,13 @@ struct ErrorPane: View {
                     .padding(.horizontal, 30)
             }
             Button(action: retry) {
-                Text("重试").font(.system(size: 14, weight: .semibold))
+                Text("重试")
+                    .font(.system(size: 13.5, weight: .medium))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 28).padding(.vertical, 10)
-                    .background(Theme.accent, in: Capsule())
-            }.buttonStyle(.plain)
+                    .padding(.horizontal, 24).padding(.vertical, 9)
+                    .background(Theme.ink, in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
