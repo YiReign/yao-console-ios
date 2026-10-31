@@ -179,7 +179,14 @@ final class WebEngine: ObservableObject {
 
     func load(_ url: URL) {
         beginLoading()
-        webView.load(URLRequest(url: url, timeoutInterval: 30))
+        // 带上 Cookie 才能让各后台的登录态生效
+        let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+        let headers = HTTPCookie.requestHeaderFields(with: cookies)
+        var request = URLRequest(url: url, timeoutInterval: 30)
+        for (k, v) in headers {
+            request.setValue(v, forHTTPHeaderField: k)
+        }
+        webView.load(request)
     }
 
     func reload() {
