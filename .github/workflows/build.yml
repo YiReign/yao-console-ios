@@ -1,0 +1,60 @@
+name: Build unsigned iOS IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build for iPhone without code signing
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -project ios/YaoConsole.xcodeproj \
+            -scheme YaoConsole -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            build | tee xcodebuild.log
+
+      - name: Package and validate unsigned IPA
+        run: |
+          set -euo pipefail
+          APP='ios/build/Build/Products/Release-iphoneos/YaoConsole.app'
+          test -x "$APP/YaoConsole"
+          file "$APP/YaoConsole"
+          lipo "$APP/YaoConsole" -verify_arch arm64
+          if codesign -v "$APP" 2>/dev/null; then echo 'Unexpected signed app'; exit 1; fi
+          test ! -e "$APP/_CodeSignature"
+          mkdir -p dist/package/Payload
+          cp -R "$APP" dist/package/Payload/
+          (cd dist/package && zip -qry ../yao-console-v1.0.ipa Payload)
+          shasum -a 256 dist/yao-console-v1.0.ipa > dist/yao-console-v1.0.ipa.sha256
+          ls -la dist/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: yao-console-v1.0-unsigned
+          path: |
+            dist/yao-console-v1.0.ipa
+            dist/yao-console-v1.0.ipa.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
+          if-no-files-found: ignore

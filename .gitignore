@@ -1,0 +1,5 @@
+ios/build/
+dist/
+*.xcuserdatad
+.DS_Store
+xcodebuild.log
