@@ -42,6 +42,7 @@ enum Theme {
     static let ink2   = Color(red: 0.439, green: 0.443, blue: 0.529)
     static let line   = Color(red: 0.906, green: 0.902, blue: 0.945)
     static let accent = Color(red: 0.451, green: 0.400, blue: 0.910)
+    static let accent2 = Color(red: 0.616, green: 0.549, blue: 0.965)
     static let ok     = Color(red: 0.204, green: 0.780, blue: 0.478)
     static let warn   = Color(red: 0.965, green: 0.678, blue: 0.204)
     static let down   = Color(red: 0.898, green: 0.318, blue: 0.318)

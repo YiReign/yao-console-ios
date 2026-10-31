@@ -31,22 +31,6 @@ enum ConsoleSites {
     ]
 }
 
-// MARK: - 主题
-
-enum Theme {
-    static let bg      = Color(red: 0.960, green: 0.953, blue: 1.000)   // #F5F3FF
-    static let bgDeep  = Color(red: 0.933, green: 0.949, blue: 1.000)   // #EEF2FF
-    static let ink     = Color(red: 0.118, green: 0.106, blue: 0.294)   // #1E1B4B
-    static let inkSoft = Color(red: 0.353, green: 0.357, blue: 0.475)   // #5A5B79
-    static let accent  = Color(red: 0.451, green: 0.400, blue: 0.910)   // #7366E8
-    static let accent2 = Color(red: 0.616, green: 0.549, blue: 0.965)   // #9D8CF6
-    static let line    = Color(red: 0.878, green: 0.878, blue: 0.949)   // #E0E0F2
-
-    static var backdrop: LinearGradient {
-        LinearGradient(colors: [bg, bgDeep], startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-}
-
 // MARK: - 进度条
 
 /// 顶部加载进度条：真实 estimatedProgress + 平滑动画 + 缓爬到 90% 的兜底。
