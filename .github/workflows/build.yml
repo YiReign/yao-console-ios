@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -24,7 +24,7 @@ jobs:
             -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath ios/build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
-            build | tee xcodebuild.log
+            build 2>&1 | tail -40
 
       - name: Package and validate unsigned IPA
         run: |
@@ -38,23 +38,19 @@ jobs:
           mkdir -p dist/package/Payload
           cp -R "$APP" dist/package/Payload/
           (cd dist/package && zip -qry ../yao-console-v1.0.ipa Payload)
-          shasum -a 256 dist/yao-console-v1.0.ipa > dist/yao-console-v1.0.ipa.sha256
-          ls -la dist/
+          ls -lh dist/yao-console-v1.0.ipa
+          shasum -a 256 dist/yao-console-v1.0.ipa | tee dist/yao-console-v1.0.ipa.sha256
 
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: yao-console-v1.0-unsigned
-          path: |
+          tag_name: v1.0-build${{ github.run_number }}
+          name: YAO 控制台 v1.0 (build ${{ github.run_number }})
+          body: |
+            未签名 IPA，用于自行重签安装。
+            包含：服务器面板、时钟控制台、YAO AI、个人站
+          files: |
             dist/yao-console-v1.0.ipa
             dist/yao-console-v1.0.ipa.sha256
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcodebuild-log
-          path: xcodebuild.log
-          if-no-files-found: ignore
+          draft: false
+          prerelease: false
