@@ -8,22 +8,47 @@ struct Backend: Identifiable, Hashable {
     let host: String
     let icon: String
     let urlString: String
+    let group: String          // 「后台」= 用户侧页面，「管理」= 站长管理后台
     var url: URL { URL(string: urlString)! }
+
+    init(id: String, name: String, host: String, icon: String, urlString: String,
+         group: String = "管理") {
+        self.id = id; self.name = name; self.host = host
+        self.icon = icon; self.urlString = urlString; self.group = group
+    }
 }
 
 enum Backends {
     static let all: [Backend] = [
+        // ===== 用户侧 =====
         Backend(id: "panel", name: "服务器面板", host: "status.yaoyc.fun",
-                icon: "server.rack", urlString: "https://status.yaoyc.fun"),
+                icon: "server.rack", urlString: "https://status.yaoyc.fun", group: "后台"),
         Backend(id: "clock", name: "时钟控制台", host: "pet.yaoyc.fun/control",
-                icon: "clock", urlString: "https://pet.yaoyc.fun/control"),
+                icon: "clock", urlString: "https://pet.yaoyc.fun/control", group: "后台"),
         Backend(id: "pet", name: "Hermes 状态", host: "pet.yaoyc.fun",
-                icon: "sparkles", urlString: "https://pet.yaoyc.fun"),
+                icon: "sparkles", urlString: "https://pet.yaoyc.fun", group: "后台"),
         Backend(id: "chat", name: "YAO AI", host: "chat.yaoyc.fun",
-                icon: "bubble.left.and.bubble.right", urlString: "https://chat.yaoyc.fun"),
+                icon: "bubble.left.and.bubble.right", urlString: "https://chat.yaoyc.fun", group: "后台"),
         Backend(id: "site", name: "个人站", host: "yaoyc.fun",
-                icon: "square.grid.2x2", urlString: "https://yaoyc.fun")
+                icon: "square.grid.2x2", urlString: "https://yaoyc.fun", group: "后台"),
+
+        // ===== 管理后台 =====
+        Backend(id: "chat_admin", name: "YAO AI 管理", host: "chat.yaoyc.fun/admin",
+                icon: "person.2.badge.gearshape", urlString: "https://chat.yaoyc.fun/admin"),
+        Backend(id: "panel_admin", name: "服务器面板管理", host: "status.yaoyc.fun/admin",
+                icon: "server.rack", urlString: "https://status.yaoyc.fun/admin"),
+        Backend(id: "panel_super", name: "超管设置", host: "status.yaoyc.fun/super",
+                icon: "key.horizontal", urlString: "https://status.yaoyc.fun/super"),
+        Backend(id: "clock_admin", name: "时钟管理", host: "pet.yaoyc.fun/admin",
+                icon: "clock.badge.checkmark", urlString: "https://pet.yaoyc.fun/admin"),
+        Backend(id: "sites", name: "站点导航", host: "yao 全部站点",
+                icon: "list.bullet.rectangle", urlString: "https://yaoyc.fun/sites.html"),
+        Backend(id: "server_ssh", name: "远程终端", host: "ssh.yaoyc.fun",
+                icon: "terminal", urlString: "https://ssh.yaoyc.fun"),
     ]
+
+    static var userSide: [Backend] { all.filter { $0.group == "后台" } }
+    static var adminSide: [Backend] { all.filter { $0.group == "管理" } }
 }
 
 // MARK: - 状态模型
@@ -86,8 +111,45 @@ final class StatusStore: ObservableObject {
         for (k, v) in [("pet", r.0), ("clock", r.1), ("chat", r.2), ("panel", r.3), ("site", r.4)] {
             if let v { cards[k] = v }
         }
+        // 管理后台可达性（页面能打开 = 可达；登录态由 WebView 自己带）
+        async let adminGroup = probeAdmins()
+        let admins = await adminGroup
+        for (k, v) in admins { cards[k] = v }
         if !pendingEvents.isEmpty { events = pendingEvents; pendingEvents = [] }
         lastRefresh = Date()
+    }
+
+    /// 浅探每个管理后台页面能否打开（只发 HEAD/GET，不提交任何东西）
+    private func probeAdmins() async -> [(String, CardState)] {
+        let targets = Backends.adminSide
+        var out: [(String, CardState)] = []
+        await withTaskGroup(of: (String, CardState).self) { group in
+            for b in targets {
+                group.addTask { [weak self] in
+                    guard let self else { return (b.id, CardState()) }
+                    var st = CardState()
+                    let (_, code) = await self.get(b.urlString)
+                    switch code {
+                    case 200:
+                        st.level = .ok; st.headline = "页面可访问"
+                    case 401, 403:
+                        st.needsLogin = true; st.headline = "需要登录"
+                    case 302, 301:
+                        st.needsLogin = true; st.headline = "跳转登录"
+                    case 0:
+                        st.level = .down; st.headline = "无法连接"
+                    default:
+                        st.level = .warn; st.headline = "HTTP \(code)"
+                    }
+                    if st.headline == "页面可访问" {
+                        st.rows = [("地址", b.host)]
+                    }
+                    return (b.id, st)
+                }
+            }
+            for await item in group { out.append(item) }
+        }
+        return out
     }
 
     private func get(_ s: String) async -> (Data?, Int) {

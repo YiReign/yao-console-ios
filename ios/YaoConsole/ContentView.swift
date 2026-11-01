@@ -17,7 +17,15 @@ struct ContentView: View {
                     VStack(spacing: 14) {
                         header
                         summaryGlass
-                        ForEach(Backends.all) { b in
+                        sectionLabel("后台")
+                        ForEach(Backends.userSide) { b in
+                            Button { opened = b } label: {
+                                GlassCard(backend: b, state: store.cards[b.id], glow: glowPoint)
+                            }
+                            .buttonStyle(PressScale())
+                        }
+                        sectionLabel("管理后台")
+                        ForEach(Backends.adminSide) { b in
                             Button { opened = b } label: {
                                 GlassCard(backend: b, state: store.cards[b.id], glow: glowPoint)
                             }
@@ -99,10 +107,12 @@ struct ContentView: View {
         }.count
 
         return HStack(spacing: 0) {
-            statCell("\(Backends.all.count)", "后台", color: Color(red: 0.13, green: 0.11, blue: 0.28))
-            sep
+            statCell("\(Backends.userSide.count)", "后台", color: Color(red: 0.13, green: 0.11, blue: 0.28))
+            sep()
+            statCell("\(Backends.adminSide.count)", "管理", color: Color(red: 0.42, green: 0.25, blue: 0.85))
+            sep()
             statCell("\(online)", "正常", color: Color(red: 0.05, green: 0.60, blue: 0.36))
-            sep
+            sep()
             statCell("\(issues)", "异常", color: issues > 0
                      ? Color(red: 0.85, green: 0.22, blue: 0.24)
                      : Color(red: 0.44, green: 0.43, blue: 0.58))
@@ -111,11 +121,23 @@ struct ContentView: View {
         .liquidGlass(corner: 22, glow: glowPoint, intensity: 1.1)
     }
 
-    private var sep: some View {
+    private func sep: some View {
         Rectangle()
             .fill(Color.white.opacity(0.55))
             .frame(width: 1, height: 26)
             .shadow(color: Color(red: 0.5, green: 0.5, blue: 0.9).opacity(0.18), radius: 1)
+    }
+
+    /// 分组小标题
+    private func sectionLabel(_ s: String) -> some View {
+        HStack {
+            Text(s)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color(red: 0.36, green: 0.34, blue: 0.55))
+            Spacer()
+        }
+        .padding(.leading, 6)
+        .padding(.top, 4)
     }
 
     private func statCell(_ num: String, _ label: String, color: Color) -> some View {
