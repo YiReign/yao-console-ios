@@ -121,7 +121,7 @@ struct ContentView: View {
         .liquidGlass(corner: 22, glow: glowPoint, intensity: 1.1)
     }
 
-    private func sep: some View {
+    private func sep() -> some View {
         Rectangle()
             .fill(Color.white.opacity(0.55))
             .frame(width: 1, height: 26)
