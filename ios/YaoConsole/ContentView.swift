@@ -19,33 +19,32 @@ struct ContentView: View {
                         summaryGlass
                         sectionLabel("后台")
                         ForEach(Backends.userSide) { b in
-                            Button { opened = b } label: {
-                                GlassCard(backend: b, state: store.cards[b.id], glow: glowPoint)
+                            NavCard(backend: b, state: store.cards[b.id], glow: glowPoint) {
+                                opened = b
                             }
-                            .buttonStyle(PressScale())
                         }
                         sectionLabel("管理后台")
                         ForEach(Backends.adminSide) { b in
-                            Button { opened = b } label: {
-                                GlassCard(backend: b, state: store.cards[b.id], glow: glowPoint)
+                            NavCard(backend: b, state: store.cards[b.id], glow: glowPoint) {
+                                opened = b
                             }
-                            .buttonStyle(PressScale())
                         }
                         eventsGlass
                         Color.clear.frame(height: 24)
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 4)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { v in
-                                let w = UIScreen.main.bounds.width
-                                let h = UIScreen.main.bounds.height
-                                glowPoint = CGPoint(x: min(max(v.location.x / w, 0), 1),
-                                                    y: min(max(v.location.y / h, 0), 1))
-                            }
-                    )
                 }
+                // 光斑跟随手指：全程只读位置，不做任何拦截
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { v in
+                            let w = UIScreen.main.bounds.width
+                            let h = UIScreen.main.bounds.height
+                            glowPoint = CGPoint(x: min(max(v.location.x / w, 0), 1),
+                                                y: min(max(v.location.y / h, 0), 1))
+                        }
+                )
                 .refreshable { await store.refreshAll() }
                 .scrollIndicators(.hidden)
             }
@@ -307,6 +306,43 @@ struct PressScale: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.972 : 1)
             .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+/// 可滑动区域内的卡片：手指一移动就取消点击，只认「按下 → 原地抬起」为点按。
+/// 这样放在按钮上也能正常上下滑动页面。
+struct NavCard: View {
+    let backend: Backend
+    let state: CardState?
+    let glow: CGPoint
+    let action: () -> Void
+
+    @State private var pressed = false
+    @State private var dragging = false
+
+    var body: some View {
+        GlassCard(backend: backend, state: state, glow: glow)
+            .scaleEffect(pressed && !dragging ? 0.972 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: pressed)
+            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: dragging)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        pressed = true
+                        if !dragging,
+                           abs(v.translation.width) > 8 || abs(v.translation.height) > 8 {
+                            dragging = true          // 一旦移动超过 8pt，本次不再是点按
+                        }
+                    }
+                    .onEnded { _ in
+                        let wasTap = pressed && !dragging
+                        pressed = false
+                        dragging = false
+                        if wasTap { action() }
+                    }
+            )
+            .onTapGesture { }        // 吞掉父级点击，避免重复触发
     }
 }
 

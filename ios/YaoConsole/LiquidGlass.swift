@@ -79,8 +79,6 @@ extension View {
 // MARK: - 会动的背景
 
 struct AuroraBackground: View {
-    @State private var t: Double = 0
-    @State private var pointer: CGPoint = .init(x: 0.72, y: 0.18)
 
     var body: some View {
         GeometryReader { geo in
@@ -90,37 +88,24 @@ struct AuroraBackground: View {
                 // 一个主光斑跟随手指
                 Blob(color: Color(red: 0.815, green: 0.780, blue: 1.0),
                      size: geo.size.width * 1.05)
-                    .position(x: pointer.x * geo.size.width, y: pointer.y * geo.size.height)
-                    .blur(radius: 90)
+                    .position(x: geo.size.width * 0.3, y: geo.size.height * 0.12)
+                    .blur(radius: 60)
                     .opacity(0.75)
 
                 // 两个缓慢漂移的辅助色块
                 Blob(color: Color(red: 0.760, green: 0.898, blue: 0.980),
                      size: geo.size.width * 0.92)
-                    .position(x: geo.size.width * (0.18 + 0.08 * sin(t)),
-                              y: geo.size.height * (0.62 + 0.06 * cos(t * 0.8)))
-                    .blur(radius: 100)
+                    .position(x: geo.size.width * 0.18, y: geo.size.height * 0.62)
+                    .blur(radius: 70)
                     .opacity(0.62)
 
                 Blob(color: Color(red: 0.960, green: 0.820, blue: 0.900),
                      size: geo.size.width * 0.80)
-                    .position(x: geo.size.width * (0.85 + 0.05 * cos(t * 0.7)),
-                              y: geo.size.height * (0.90 + 0.04 * sin(t * 0.9)))
-                    .blur(radius: 110)
+                    .position(x: geo.size.width * 0.85, y: geo.size.height * 0.90)
+                    .blur(radius: 70)
                     .opacity(0.48)
             }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true)) {
-                    t = .pi
-                }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        pointer = CGPoint(x: v.location.x / max(geo.size.width, 1),
-                                          y: v.location.y / max(geo.size.height, 1))
-                    }
-            )
+            .allowsHitTesting(false)      // 背景绝不接受触摸，手势全留给 ScrollView
             .ignoresSafeArea()
         }
     }
