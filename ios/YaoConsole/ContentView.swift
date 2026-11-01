@@ -6,7 +6,7 @@ struct ContentView: View {
     @StateObject private var store = StatusStore()
     @State private var opened: Backend?
     @State private var loaded = false
-    @State private var glowPoint: CGPoint = .init(x: 0.3, y: 0.12)
+    private let glowPoint = CGPoint(x: 0.3, y: 0.12)
 
     var body: some View {
         NavigationStack {
@@ -35,16 +35,6 @@ struct ContentView: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 4)
                 }
-                // 光斑跟随手指：全程只读位置，不做任何拦截
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 12)
-                        .onChanged { v in
-                            let w = UIScreen.main.bounds.width
-                            let h = UIScreen.main.bounds.height
-                            glowPoint = CGPoint(x: min(max(v.location.x / w, 0), 1),
-                                                y: min(max(v.location.y / h, 0), 1))
-                        }
-                )
                 .refreshable { await store.refreshAll() }
                 .scrollIndicators(.hidden)
             }
@@ -317,32 +307,13 @@ struct NavCard: View {
     let glow: CGPoint
     let action: () -> Void
 
-    @State private var pressed = false
-    @State private var dragging = false
-
     var body: some View {
-        GlassCard(backend: backend, state: state, glow: glow)
-            .scaleEffect(pressed && !dragging ? 0.972 : 1)
-            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: pressed)
-            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: dragging)
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        pressed = true
-                        if !dragging,
-                           abs(v.translation.width) > 8 || abs(v.translation.height) > 8 {
-                            dragging = true          // 一旦移动超过 8pt，本次不再是点按
-                        }
-                    }
-                    .onEnded { _ in
-                        let wasTap = pressed && !dragging
-                        pressed = false
-                        dragging = false
-                        if wasTap { action() }
-                    }
-            )
-            .onTapGesture { }        // 吞掉父级点击，避免重复触发
+        // 只用系统原生的 Button：ScrollView 能正常识别滑动，
+        // 手指一动系统自己就把点击取消掉，不用我们插手。
+        Button(action: action) {
+            GlassCard(backend: backend, state: state, glow: glow)
+        }
+        .buttonStyle(PressScale())
     }
 }
 

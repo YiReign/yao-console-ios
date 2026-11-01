@@ -39,10 +39,6 @@ enum Backends {
                 icon: "server.rack", urlString: "https://status.yaoyc.fun/admin"),
         Backend(id: "panel_super", name: "超管设置", host: "status.yaoyc.fun/super",
                 icon: "key.horizontal", urlString: "https://status.yaoyc.fun/super"),
-        Backend(id: "clock_admin", name: "时钟管理", host: "pet.yaoyc.fun/admin",
-                icon: "clock.badge.checkmark", urlString: "https://pet.yaoyc.fun/admin"),
-        Backend(id: "sites", name: "站点导航", host: "yao 全部站点",
-                icon: "list.bullet.rectangle", urlString: "https://yaoyc.fun/sites.html"),
         Backend(id: "server_ssh", name: "远程终端", host: "ssh.yaoyc.fun",
                 icon: "terminal", urlString: "https://ssh.yaoyc.fun"),
     ]
